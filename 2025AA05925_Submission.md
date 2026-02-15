@@ -1,6 +1,4 @@
-# Submission PDF 
-  
-Each submission must be a **single PDF file** with the following (maintain the order):  
+# Submission PDF
   
 ## 1. GitHub Repository Link containing  
 
