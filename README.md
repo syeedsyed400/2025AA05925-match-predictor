@@ -105,6 +105,19 @@ ml-match/
 
 ---
 
+## Deploy on Streamlit Community Cloud
+
+1. Go to [https://streamlit.io/cloud](https://streamlit.io/cloud)
+2. Sign in using GitHub account
+3. Click **"New App"**
+4. Select your repository
+5. Choose branch (usually `main`)
+6. Select `app.py`
+7. Click **Deploy**
+8. Go to [https://github.com/syeedsyed400/match-predictor-2] (https://github.com/syeedsyed400/match-predictor-2 to use deployed app)
+
+---
+
 ## How to Run Locally
 
 ```bash
@@ -138,17 +151,15 @@ streamlit run app.py
 
 ---
 
-## Technologies Used
+## Requirements.txt
 
 - Python 3.12
 - scikit-learn
 - XGBoost
 - Streamlit
-- pandas / NumPy
-- matplotlib / seaborn
+- pandas
+- NumPy
+- matplotlib
+- seaborn
 
 ---
-
-## License
-
-This project is for academic / educational purposes.
