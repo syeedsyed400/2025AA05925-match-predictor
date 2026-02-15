@@ -1,29 +1,24 @@
 """
 Streamlit App – Cricket Match Winner Prediction
 Supports all 6 classification models with evaluation metrics & confusion matrix.
-Models are trained in-memory on the dataset (no .pkl dependency).
+Pre-trained models are loaded from model_pkls/ – only testing / evaluation runs here.
 """
 import streamlit as st
 import pandas as pd
 import numpy as np
 import os
 import warnings
+import joblib
 import matplotlib.pyplot as plt
 import seaborn as sns
 
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import LabelEncoder, StandardScaler
+from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import (
     accuracy_score, roc_auc_score, precision_score,
     recall_score, f1_score, matthews_corrcoef,
     confusion_matrix, classification_report
 )
-from sklearn.linear_model import LogisticRegression
-from sklearn.tree import DecisionTreeClassifier
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.naive_bayes import GaussianNB
-from sklearn.ensemble import RandomForestClassifier
-from xgboost import XGBClassifier
 
 warnings.filterwarnings("ignore")
 
@@ -40,6 +35,7 @@ st.markdown("Predict T20 match outcomes using **6 Machine Learning models** trai
 # ── Paths ────────────────────────────────────────────────────────────────────
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_DATA = os.path.join(BASE_DIR, "Match_dataset.csv")
+MODEL_PKL_DIR = os.path.join(BASE_DIR, "model_pkls")
 
 MODEL_NAMES = [
     "Logistic Regression",
@@ -49,6 +45,16 @@ MODEL_NAMES = [
     "Random Forest (Ensemble)",
     "XGBoost (Ensemble)",
 ]
+
+# Mapping from display names to .pkl file stems
+_PKL_MAP = {
+    "Logistic Regression": "logistic_regression",
+    "Decision Tree": "decision_tree",
+    "KNN": "knn",
+    "Naive Bayes": "naive_bayes",
+    "Random Forest (Ensemble)": "random_forest",
+    "XGBoost (Ensemble)": "xgboost",
+}
 
 
 # ── Helper: Feature Engineering ──────────────────────────────────────────────
@@ -87,46 +93,37 @@ def engineer_features(df: pd.DataFrame):
     return X, y
 
 
-def _build_model(name: str):
-    """Return an untrained sklearn/xgb estimator for the given model name."""
-    if name == "Logistic Regression":
-        return LogisticRegression(max_iter=1000, random_state=42)
-    elif name == "Decision Tree":
-        return DecisionTreeClassifier(max_depth=10, random_state=42)
-    elif name == "KNN":
-        return KNeighborsClassifier(n_neighbors=7)
-    elif name == "Naive Bayes":
-        return GaussianNB()
-    elif name == "Random Forest (Ensemble)":
-        return RandomForestClassifier(n_estimators=200, max_depth=15, random_state=42)
-    elif name == "XGBoost (Ensemble)":
-        return XGBClassifier(
-            n_estimators=200, max_depth=6, learning_rate=0.1,
-            use_label_encoder=False, eval_metric="logloss", random_state=42,
-        )
+@st.cache_resource
+def load_scaler():
+    """Load the pre-trained StandardScaler from disk."""
+    return joblib.load(os.path.join(MODEL_PKL_DIR, "scaler.pkl"))
 
 
-@st.cache_data
-def train_and_evaluate(_X_train, _X_test, _y_train, _y_test, model_names):
-    """Train each model, evaluate on test set, return results dict."""
-    scaler = StandardScaler()
-    X_tr = scaler.fit_transform(_X_train)
-    X_te = scaler.transform(_X_test)
+@st.cache_resource
+def load_model(name: str):
+    """Load a pre-trained model from its .pkl file."""
+    pkl_stem = _PKL_MAP[name]
+    return joblib.load(os.path.join(MODEL_PKL_DIR, f"{pkl_stem}.pkl"))
+
+
+def evaluate_models(X_test, y_test, model_names):
+    """Load pre-trained models, run predictions on the test set, return results dict."""
+    scaler = load_scaler()
+    X_te = scaler.transform(X_test)
 
     results = {}
     for name in model_names:
-        model = _build_model(name)
-        model.fit(X_tr, _y_train)
+        model = load_model(name)
         y_pred = model.predict(X_te)
         y_prob = model.predict_proba(X_te)[:, 1]
 
         results[name] = {
-            "Accuracy": round(accuracy_score(_y_test, y_pred), 4),
-            "AUC": round(roc_auc_score(_y_test, y_prob), 4),
-            "Precision": round(precision_score(_y_test, y_pred), 4),
-            "Recall": round(recall_score(_y_test, y_pred), 4),
-            "F1": round(f1_score(_y_test, y_pred), 4),
-            "MCC": round(matthews_corrcoef(_y_test, y_pred), 4),
+            "Accuracy": round(accuracy_score(y_test, y_pred), 4),
+            "AUC": round(roc_auc_score(y_test, y_prob), 4),
+            "Precision": round(precision_score(y_test, y_pred), 4),
+            "Recall": round(recall_score(y_test, y_pred), 4),
+            "F1": round(f1_score(y_test, y_pred), 4),
+            "MCC": round(matthews_corrcoef(y_test, y_pred), 4),
             "y_pred": y_pred.tolist(),
             "y_prob": y_prob.tolist(),
         }
@@ -157,6 +154,7 @@ selected_models = st.sidebar.multiselect(
 )
 
 st.sidebar.markdown("---")
+st.sidebar.markdown("Models are **pre-trained** – only testing / evaluation runs here.")
 st.sidebar.markdown("Built for the ML Classification Assignment")
 
 # ── Data Preview ─────────────────────────────────────────────────────────────
@@ -184,8 +182,8 @@ X_train, X_test, y_train, y_test = train_test_split(
     X, y, test_size=0.2, random_state=42, stratify=y
 )
 
-with st.spinner("Training models..."):
-    results = train_and_evaluate(X_train, X_test, y_train, y_test, tuple(selected_models))
+with st.spinner("Evaluating pre-trained models on test set..."):
+    results = evaluate_models(X_test, y_test, selected_models)
 
 # Convert lists back to arrays for metric computation below
 for m in results.values():
