@@ -1,4 +1,4 @@
-# 2. Mandatory Submission Links  
+# Submission PDF 
   
 Each submission must be a **single PDF file** with the following (maintain the order):  
   
